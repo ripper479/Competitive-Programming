@@ -4,7 +4,7 @@ using namespace std;
 typedef long long ll;
 #define mod 1000000007
 
-bool isPrime(ll n)
+bool isPrime(ll n)          // Time Complexity: O(sqrt(N))
 {
   if(n==1)  return 0;
   if(n==2)  return 1;
