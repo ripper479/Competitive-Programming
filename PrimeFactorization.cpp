@@ -4,7 +4,7 @@ using namespace std;
 typedef long long ll;
 #define mod 1000000007
 
-void primeFactors(ll n)  
+void primeFactors(ll n)                 //Time Complexity: O(sqrt(N))
 {   
     while (n % 2 == 0)  
     {  
