@@ -37,108 +37,59 @@ template<class T,class...S>void dbs(string str,T t,S... s){int idx=str.find(',')
 #define debarr(a,n){}
 #define debmat(mat,row,col){}
 #endif
-
-const ll N = 200005; 
-ll nxt[N][20];
-ll depth[N],val[N];
+ 
+const ll N = 2e5+5;
 vector<ll> g[N];
 ll n,q;
-void pre(ll nn,ll pp,ll d){
-    nxt[nn][0]=pp;
-    depth[nn]=d;
-    repe(i,1,19){
-        nxt[nn][i]=nxt[nxt[nn][i-1]][i-1];
-    }
-    for(auto x:g[nn]){
-        if(x!=pp){
-            pre(x,nn,d+1);
-        }
-    }
-}
-ll lca(ll u,ll v){
-    if(depth[u]<depth[v])   swap(u,v);
-    for(ll i=19;i>=0;i--){
-        if(((depth[u]-depth[v])>>i)&1){
-            u=nxt[u][i];
-        }
-    }
-    if(u==v)    return u;
-    for(ll i=19;i>=0;i--){
-        if(nxt[u][i]!=nxt[v][i]){
-            u=nxt[u][i];
-            v=nxt[v][i];
-        }
-    }
-    return nxt[u][0];
-}
-struct hld{
-    vector<ll> parent, depth, heavy, head, pos;
-    ll cur_pos;
-    ll dfs(ll v) {
-        ll size = 1;
-        ll max_c_size = 0;
-        for (ll c : g[v]) {
-            if (c != parent[v]) {
-                parent[c] = v, depth[c] = depth[v] + 1;
-                ll c_size = dfs(c);
-                size += c_size;
-                if (c_size > max_c_size)
-                    max_c_size = c_size, heavy[v] = c;
-            }
-        }
-        return size;
-    }
-    void decompose(ll v, ll h) {
-        head[v] = h, pos[v] = cur_pos++;
-        if (heavy[v] != -1)
-            decompose(heavy[v], h);
-        for (int c : g[v]) {
-            if (c != parent[v] && c != heavy[v])
-                decompose(c, c);
-        }
-    }
-    void init() {
-        parent = vector<ll>(n);
-        depth = vector<ll>(n);
-        heavy = vector<ll>(n, -1);
-        head = vector<ll>(n);
-        pos = vector<ll>(n);
-        cur_pos = 0;
-
-        dfs(0);
-        decompose(0, 0);
+ll arr[N];
+struct node{
+    ll maxi;
+    node(){
+        maxi=INT_MIN;
     }
 };
-struct node{
-        ll sum;
-        node(){
-            sum=0;
-        }
-    };
-struct seg_tree{
+struct hld{
+    vector<vector<ll>> nxt;
+    vector<ll> depth,sz,par,bigchild,label,chain,rlabel;
+    ll label_time;
     vector<node> t;
-    seg_tree(){
+    hld(){
+        label_time=0;
+        nxt.resize(n+1);
+        rep(i,n+1)  nxt[i].resize(20);
+        depth.resize(n+1);
+        sz.resize(n+1);
+        par.resize(n+1);
+        bigchild.resize(n+1);
+        label.resize(n+1);
+        chain.resize(n+1);
+        rlabel.resize(n+1);
         t.resize(4*(n+1));
+        rep(i,n+1){
+            bigchild[i]=-1;
+            chain[i]=i;
+        }
     }
     node merge(node a,node b){
         node ans;
-        ans.sum=a.sum+b.sum;
+        ans.maxi=max(a.maxi,b.maxi);
         return ans;
     }
-    void build(ll id,ll l,ll r,vector<ll> &arr){
+    void build(ll id,ll l,ll r){
         if(l==r){
-            t[id].sum=val[arr[l]];
+            ll nn=rlabel[l];
+            t[id].maxi=arr[nn-1];
             return;
         }
         ll mid=(l+r)/2;
-        build(2*id,l,mid,arr);
-        build(2*id+1,mid+1,r,arr);
+        build(2*id,l,mid);
+        build(2*id+1,mid+1,r);
         t[id]=merge(t[2*id],t[2*id+1]);
     }
     void update(ll id,ll l,ll r,ll pos,ll val){
         if(pos<l or pos>r)  return;
         if(l==r){
-            t[id].sum=val;
+            t[id].maxi=val;
             return;
         }
         ll mid=(l+r)/2;
@@ -152,59 +103,119 @@ struct seg_tree{
         ll mid=(l+r)/2;
         return merge(query(2*id,l,mid,lq,rq),query(2*id+1,mid+1,r,lq,rq));
     }
+    void dfs_size(ll nn,ll pp,ll d){
+        sz[nn]=1;
+        nxt[nn][0]=pp;
+        depth[nn]=d;
+        par[nn]=pp;
+        ll bigc=-1,bigv=-1;
+        repe(i,1,19){
+            nxt[nn][i]=nxt[nxt[nn][i-1]][i-1];
+        }
+        for(auto x:g[nn]){
+            if(x!=pp){
+                dfs_size(x,nn,d+1);
+                sz[nn] += sz[x];
+                if (sz[x] > bigv) {
+                    bigc = x;
+                    bigv = sz[x];
+                }
+            }
+        }
+        bigchild[nn]=bigc;
+    }
+    void dfs_label(ll nn,ll pp){
+        label[nn]=label_time++;
+        if(bigchild[nn]!=-1)    dfs_label(bigchild[nn],nn);
+        for(auto x:g[nn]){
+            if(x!=pp and x!=bigchild[nn]){
+                dfs_label(x,nn);
+            }
+        }
+    }
+    void dfs_chain(ll nn,ll pp){
+        if(bigchild[nn]!=-1)    chain[bigchild[nn]]=chain[nn];
+        for(auto x:g[nn]){
+            if(x!=pp)    dfs_chain(x,nn);
+        }
+    }
+    ll lca(ll u,ll v){
+        if(depth[u]<depth[v])   swap(u,v);
+        for(ll i=19;i>=0;i--){
+            if(((depth[u]-depth[v])>>i)&1){
+                u=nxt[u][i];
+            }
+        }
+        if(u==v)    return u;
+        for(ll i=19;i>=0;i--){
+            if(nxt[u][i]!=nxt[v][i]){
+                u=nxt[u][i];
+                v=nxt[v][i];
+            }
+        }
+        return nxt[u][0];
+    }
+    ll getKthAncestor(ll nn,ll k){
+        for(ll i=19;i>=0;i--){
+            if((k>>i)&1)    nn=nxt[nn][i];
+        }
+        return nn;
+    }
+    void getRlabel(){
+        repe(i,1,n){
+            rlabel[label[i]]=i;
+        }
+    }
+    ll query_chain(ll nn,ll lc){
+        ll ans=INT_MIN;
+        while(depth[lc]<depth[nn]){
+            ll top=chain[nn];
+            if(depth[top]<=depth[lc]){
+                ll diff=depth[nn]-depth[lc];
+                top=getKthAncestor(nn,diff-1);
+            }
+            node t=query(1,0,n-1,label[top],label[nn]);
+            ans=max(ans,t.maxi);
+            nn=par[top];
+        }
+        return ans;
+    }
+    ll query_path(ll u,ll v){
+        ll lc=lca(u,v);
+        ll ans=max(query_chain(u,lc),query_chain(v,lc));
+        ans=max(ans,arr[lc-1]);
+        return ans;
+    }
 };
 void solve(){
     cin>>n>>q;
-    rep(i,n)    cin>>val[i];
+    rep(i,n)    cin>>arr[i];
     rep(i,n-1){
         ll a,b;
         cin>>a>>b;
-        a--;b--;
         g[a].EB(b);
         g[b].EB(a);
     }
-    pre(0,-1,0);
     hld t;
-    t.init();
-    vector<ll> idx(n);
-    rep(i,n)    idx[t.pos[i]]=i;
-    seg_tree st;
-    st.build(1,0,n-1,idx);
+    t.dfs_size(1,0,0);t.dfs_label(1,0);t.dfs_chain(1,0);t.getRlabel();
+    t.build(1,0,n-1);
+    // pr("Teri");
     while(q--){
         ll op;
         cin>>op;
         if(op==1){
-            ll p,v;
-            cin>>p>>v;
-            p--;
-            st.update(1,0,n-1,t.pos[p],v);
-            val[p]=v;
+            ll nn,val;
+            cin>>nn>>val;
+            arr[nn-1]=val;
+            t.update(1,0,n-1,t.label[nn],val);
         }
         else{
-            ll a;
-            cin>>a;
-            a--;
-            ll b=0;
-            // if(depth[a]<depth[b])   swap(a,b);
-            ll mid=lca(a,b);
-            ll ans=0;
-            ll nn=a;
-            node tmp;
-            while(1){
-                ll top=t.head[nn];
-                if(depth[top]<depth[mid])   top=mid;
-                ll l=t.pos[nn],r=t.pos[top];
-                if(l>r) swap(l,r);
-                tmp=st.query(1,0,n-1,l,r);
-                ans+=tmp.sum;
-                if(top==mid)    break;
-                else{
-                    nn=t.parent[top];
-                }
-            }
-            cout<<ans<<endl;
+            ll a,b;
+            cin>>a>>b;
+            cout<<t.query_path(a,b)<<" ";
         }
     }
+    cout<<endl;
 }
  
  
